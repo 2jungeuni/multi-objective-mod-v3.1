@@ -18,7 +18,11 @@ c++ -O3 -Wall -shared -std=c++11 -fPIC $(python3 -m pybind11 --includes) ./astar
 ### Inputs
 
 
-### Example
+### Example 1
 ```python
-
+python3 main.py -w 0 1 0 -p 10 -d 1.5
+```
+### Example 2
+```python
+python3 main.py -w 0 1 0 -p 10 -d 2.0
 ```
