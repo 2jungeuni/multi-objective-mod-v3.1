@@ -12,7 +12,7 @@ seamless C++ and Python interoperability with minimal code, making it straightfo
 classes to Python.
 #### Compile
 ```bash
-c++ -O3 -Wall -shared -std=c++11 -fPIC $(python3 -m pybind11 --includes) ./astar/astar.h ./astar/astar.cpp ./astar/planner.cpp -o planner.so
+c++ -O3 -Wall -shared -std=c++11 -fPIC $(python3 -m pybind11 --includes) ./astar/astar.h ./astar/astar.cpp ./astar/planner.cpp -o ./astar/planner.so
 ```
 
 ### Inputs
