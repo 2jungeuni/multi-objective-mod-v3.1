@@ -172,11 +172,6 @@ class System:
         # vehicles
         vehicles = list(self.vehicles)
 
-        # print("### have to service ###")
-        # for v in range(nv):
-        #     print(vehicles[v])
-        #     print(vehicles[v].have_to_service)
-
         # edges
         e_vars = m.addVars([(i, j, k)
                             for i in range(n) for j in range(n) for k in range(nv) if i != j],
@@ -190,8 +185,10 @@ class System:
 
         #
         for v in range(nv):
-            for user in vehicles[v].have_to_service:
+            for user in vehicles[v].on_board:
                 m.addConstr(p_vars[stops_idx[(user.pu, user)], v] == 1)
+            if vehicles[v].next_loc is not None:
+                m.addConstr(e_vars[stops_idx[vehicles[v].here], stops_idx[vehicles[v].next_loc], v] == 1)
 
         cons1 = m.addConstrs(p_vars.sum(i, "*") <= 1 for i in range(n) if i != 0)
         # Constraint 2: visited node i must have an outgoing edge.
@@ -294,36 +291,48 @@ class System:
             v.reset()
             route = sol[v_idx]
             station = stops_idx[(v.loc, v)]
+
             travel_time = 0
             over_system_time = False
             while True:
                 station_ = copy.copy(station)
                 station = route[station]
                 travel_time += self.distance[idx_stops[station_][0]][idx_stops[station][0]]
-
                 if station == 0:
                     break
                 elif station in pickups:
                     user = idx_stops[station][1]
-                    # user.take_car(v)
                     user.set_waiting_time(travel_time)
                     v.accept_user(user)
                 elif station in dropoffs:
                     user = idx_stops[station][1]
                     user.set_travel_time(travel_time - user.expected_waiting_time)
                     v.detour_ratio[user] = user.expected_travel_time / user.shortest_time
-                v.add_route(idx_stops[station])
+                v.add_route((idx_stops[station][0], idx_stops[station][1], travel_time))
 
                 if not over_system_time:
                     if self.time <= v.time + datetime.timedelta(seconds=travel_time):
                         over_system_time = True
-                        v.have_to_service = v.on_board.copy()
 
-            v.travel_time = travel_time
+                v.travel_time = travel_time
 
             # is detour
             while v.is_detour(detour):
-                users_over_limit = [user for user, dr in v.detour_ratio.items() if dr > detour]
-                min_cap_user = min(users_over_limit, key=lambda x: x.cap)
-                min_cap_user.stopover(v)
-                v.reject_user(min_cap_user, self.distance, self.time)
+                users_over_limit = []
+                booking = None
+                for user, dr in v.detour_ratio.items():
+                    if dr > detour:
+                        if user != v.next_loc[1]:
+                            users_over_limit.append(user)
+                        else:
+                            booking = user
+
+                if booking is not None:
+                    v.detour_ratio.pop(booking)
+
+                if len(users_over_limit) > 0:
+                    min_cap_user = min(users_over_limit, key=lambda x: x.cap)
+                    min_cap_user.stopover(v)
+                    v.reject_user(min_cap_user, self.distance, self.time)
+
+            v.move(self.time)

@@ -53,7 +53,7 @@ def show_all_users(users):
     print(tabulate(print_pudo, headers="keys", tablefmt="fancy_grid", missingval="N/A"))
 
 
-def show_all_vehicles(vehicles):
+def show_all_vehicles(vehicles, time=None):
     print_veh = {"vehicle ID": [],
                  "origin": [],
                  "capacity": [],
@@ -61,7 +61,8 @@ def show_all_vehicles(vehicles):
                  "# users": [],
                  "path": [],
                  "travel time": [],
-                 "start time": []}
+                 "start time": [],
+                 "location": []}
 
     for veh in vehicles:
         print_veh["vehicle ID"].append(veh.id)
@@ -69,9 +70,13 @@ def show_all_vehicles(vehicles):
         print_veh["capacity"].append(veh.capacity)
         print_veh["users"].append(veh.on_board)
         print_veh["# users"].append(veh.num_users)
-        print_veh["path"].append(veh.route)
+        print_veh["path"].append([stop for stop, u, tt in veh.route])
         print_veh["travel time"].append(round(veh.travel_time, 2))
         print_veh["start time"].append(veh.time)
+        if veh.next_loc is None:
+            print_veh["location"].append(str(veh.here[0]))
+        else:
+            print_veh["location"].append(str(veh.here[0]) + "->" + str(veh.next_loc[0]))
 
     # print out
     print("[Vehicles]")
@@ -95,11 +100,11 @@ if __name__ == "__main__":
     system.set_planner(planner)
 
     # load passengers calls
-    call = pd.read_csv("./input/call.csv")
+    call = pd.read_csv("./input/call-test.csv")
     call["time"] = pd.to_datetime(call["time"], format="%Y/%m/%d %H:%M:%S")
 
     # load vehicles
-    veh = pd.read_csv("./input/veh.csv")
+    veh = pd.read_csv("./input/veh-test.csv")
     veh["time"] = pd.to_datetime(veh["time"], format="%Y/%m/%d %H:%M:%S")
 
     now = datetime.datetime.strptime("2024/08/16 00:00:00", "%Y/%m/%d %H:%M:%S")
@@ -107,7 +112,7 @@ if __name__ == "__main__":
     '''
     now = datetime.datetime.now()
     '''
-    time_limit = datetime.datetime.strptime("2024/08/16 00:00:50", "%Y/%m/%d %H:%M:%S")
+    time_limit = datetime.datetime.strptime("2024/08/16 00:08:00", "%Y/%m/%d %H:%M:%S")
     system.set_time(now)
 
     count = 0
@@ -166,7 +171,7 @@ if __name__ == "__main__":
         # optimization result
         print("##### RESULT #####")
         show_all_users(system.users)
-        show_all_vehicles(system.vehicles)
+        show_all_vehicles(system.vehicles, now)
 
         # table drop
         call = call.drop(call_.index, axis=0)

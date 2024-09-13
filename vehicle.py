@@ -7,6 +7,8 @@ class Vehicle:
         self.time = time
         self.id = id
         self.loc = loc
+        self.here = (loc, self)
+        self.next_loc = None
         self.working_time = working_time
         self.capacity = cap
         self.detour_ratio = detour_ratio
@@ -16,7 +18,6 @@ class Vehicle:
         self.num_users = 0
         self.detour_ratio = {}
         self.travel_time = 0
-        self.have_to_service = []
 
         self.logger = logger
 
@@ -25,41 +26,42 @@ class Vehicle:
 
     # RESET
     def reset(self):
-        self.route = [self.loc]
+        self.route = [(self.loc, self, 0)]
         self.on_board = []
         self.detour_ratio = {}
         self.travel_time = 0
         self.num_users = 0
-        self.have_to_service = []
 
     # ADD
     def add_route(self, stop):
-        self.route.append(stop[0])
+        self.route.append(stop)
 
     def accept_user(self, user):
         self.on_board.append(user)
         if user is not self.on_board:
             self.num_users += user.cap
 
+    def move(self, now):
+        for idx, (loc, u, tt) in enumerate(self.route):
+            if self.time + datetime.timedelta(seconds=tt) > now:
+                self.here = (self.route[idx-1][0], self.route[idx-1][1])
+                self.next_loc = (loc, u)
+                break
+
     def reject_user(self, user, distance, system_time):
         self.logger.info("%s tried to board vehicle %s, but was rejected because the detour ratio was %s", user, self.id, round(self.detour_ratio[user], 2))
-        self.route.remove(user.pu)
-        self.route.remove(user.do)
         self.on_board.remove(user)
         self.detour_ratio.pop(user)
         self.num_users -= user.cap
-        if user in self.have_to_service:
-            self.have_to_service.remove(user)
-            self.travel_time = 0
-            over_system_time = False
-            for i in range(len(self.route) - 1):
-                self.travel_time += distance[self.route[i]][self.route[i + 1]]
-                if not over_system_time:
-                    if system_time <= self.time + datetime.timedelta(seconds=self.travel_time):
-                        over_system_time = True
-                        self.have_to_service = self.on_board.copy()
-        else:
-            self.travel_time = sum([distance[self.route[i]][self.route[i + 1]] for i in range(len(self.route) - 1)])
+        revised = [(loc, u, tt) for loc, u, tt in self.route
+                   if not (u == user and (loc == user.pu or loc == user.do))]
+        for idx, (loc, u, tt) in enumerate(revised):
+            if u == self:
+                continue
+            flag = (loc, u, revised[idx-1][2] + distance[revised[idx-1][0]][revised[idx][0]])
+            revised[idx] = flag
+        self.route = revised
+        self.travel_time = self.route[-1][2]
 
     def is_detour(self, limit):
         if any(detour > limit for detour in self.detour_ratio.values()):
